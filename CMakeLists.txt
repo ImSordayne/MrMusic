@@ -12,7 +12,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# NOTE: CMAKE_INCLUDE_CURRENT_DIR is intentionally OFF. Including the repo root
+# would shadow the C++20 standard header <version> with our VERSION file on
+# case-insensitive filesystems (Windows/macOS), where Qt's headers include
+# <version>. All project headers are included as "api/...", "core/...", etc.,
+# resolved through target_include_directories(.../src) below.
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -217,6 +221,19 @@ target_link_libraries(MrMusic PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
 )
+
+# qt_add_qml_module() unconditionally adds the target's source dir (the repo
+# root) to this executable's INCLUDE_DIRECTORIES (QTBUG-93443). On
+# case-insensitive filesystems (Windows/macOS) that would shadow the C++20
+# standard header <version> with our VERSION file, making Qt headers fail with
+# "expected unqualified-id" / C2059. Our includes are all "api/..."/"core/..."
+# resolved through mrmusic_core's /src include dir, so the repo root is not
+# needed here. Remove just that one entry.
+get_target_property(_mr_includes MrMusic INCLUDE_DIRECTORIES)
+if(_mr_includes)
+    list(REMOVE_ITEM _mr_includes "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_property(TARGET MrMusic PROPERTY INCLUDE_DIRECTORIES "${_mr_includes}")
+endif()
 
 # Qt places an executable QML module's tooling output (qmldir/qmltypes/dir-map)
 # in <build>/MrMusic/. On Linux the executable has no suffix and is also named
