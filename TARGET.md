@@ -251,6 +251,11 @@
       - 去掉 `on.push.tags: ['v*']`（新模型按 `VERSION` 发版，保留 tag 触发会在同一次 push 产生重复 release）；`workflow_dispatch` 的 `build_android` 输入删除（Android 恒构建），保留 `qt_version`。
       - `VERSION` 初始值取 `CMakeLists.txt` 的 `project(VERSION 0.1.0)` → `0.1.0`；`CHANGLOG.md` 建立一个初始条目。
       - 覆盖说明：§9.14 仍约束**本地**（不主动构建 APK、日常只做 Windows 构建+自检+截图）；§9.15 中「tag 才构建 Android / 才发 Release」由此条取代。
+30. **Windows 产物多套了一层 `bin`（本轮）：** 用户反馈 Windows 下构建/打包产物多了一层 `bin` 目录（期望 exe 与 `data/` 等并列、无额外一层）。需定位是 CI 的 `Compress-Archive -Path dist/bin` 把 `bin` 目录本身打进 zip，还是 `cmake --install` / `package-windows.ps1` 的输出布局问题，并修正为扁平结构；同时保持 `windeployqt`、README 与 CI 产物上传路径一致。
+    - **确认范围（用户选择）**：只修 **CI/Release 的 `MrMusic-windows-x64.zip` 解压后多一层 `bin`**；本地 `dist/bin/` 布局保持不变。
+    - **根因**：CI 用 `Compress-Archive -Path dist/bin`（打包目录本身），解压后得到 `bin/MrMusic.exe`。改为 `-Path dist/bin/*`（打包目录内容）。
+    - **附带修复**：`Compress-Archive` 会丢弃空目录，导致运行期必需的 `data/` 不进 zip；在打包前往 `dist/bin/data/` 写一个 `README.txt` 占位，保证解压后目录存在。
+    - **本地实测**：扁平 zip 顶层直接是 `MrMusic.exe` + DLL + `qml/` 等，`bin/` 条目数 0，`data/` 条目存在。
    - **第 1 轮 gh 跟踪（run `42456439992`）失败与修复**：
      - **Windows / macOS / Android 的 Build 全部失败**，根因是新增的 `VERSION` 文件在大小写不敏感文件系统上被当成 C++20 标准头 `<version>`（Qt 6.11 的 `qtconfiginclude.h` 会 `#include <version>`），编译器把 `0.1.0` 当源码解析（`expected unqualified-id` / `C2059`）。`qt_add_qml_module()` 会无条件把仓库根目录加入 `MrMusic` 的 include 路径（QTBUG-93443）。修复：关掉多余的 `CMAKE_INCLUDE_CURRENT_DIR`，并在 `qt_add_qml_module` 之后从 `MrMusic` target 的 `INCLUDE_DIRECTORIES` 移除 `CMAKE_CURRENT_SOURCE_DIR`（项目内所有 `#include` 都走 `src/`，不依赖根目录）。本机 Windows 构建 + 自检复验通过。
      - **Android `Setup Android SDK` 失败**：`android-actions/setup-android@v3` 内部执行 `sdkmanager tools`，但新版 SDK 镜像已无该旧包 → `Failed to find package 'tools'`。修复：去掉该 action，直接用 runner 预装的 `sdkmanager --install "ndk;..." "platforms;android-34" "build-tools;34.0.0"` 并设置 `ANDROID_SDK_ROOT` / `ANDROID_NDK_ROOT`（回退 `ANDROID_HOME`）。

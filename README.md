@@ -277,7 +277,7 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 
 | Job | 产物 | 说明 |
 | --- | --- | --- |
-| `windows`（`windows-latest`） | `MrMusic-windows-x64.zip` | MSVC + Ninja 构建，`windeployqt` 部署后 `Compress-Archive` 打包 `dist/bin/` |
+| `windows`（`windows-latest`） | `MrMusic-windows-x64.zip` | MSVC + Ninja 构建，`windeployqt` 部署后 `Compress-Archive` 打包 `dist/bin/` **的内容**（解压即得 `MrMusic.exe` + DLL + `data/`，无额外 `bin/` 层） |
 | `linux`（`ubuntu-22.04`） | `MrMusic-linux-x64-appimage` | `linuxdeploy` 生成 AppImage（`APPIMAGE_EXTRACT_AND_RUN=1`，适配无 FUSE 的容器） |
 | `macos`（`macos-15`） | `MrMusic-macos` | `macdeployqt` 生成 dmg |
 | `android`（`ubuntu-22.04`） | `MrMusic-android-arm64` | NDK `27.2.12479018` + JDK 17；`scripts/build-android.sh` 构建并用 `apksigner` 自签名 |
