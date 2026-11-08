@@ -2,7 +2,7 @@
 
 #include "core/Logger.h"
 
-#if defined(Q_OS_WIN)
+#if defined(Q_OS_WIN) && !defined(MRMUSIC_NO_WINRT)
 #  include <windows.h>
 
 #  include <winrt/Windows.Foundation.h>
@@ -67,7 +67,7 @@ void MediaControls::setTimeline(qint64 positionMs, qint64 durationMs)
     Q_UNUSED(durationMs)
 }
 
-#if defined(Q_OS_WIN)
+#if defined(Q_OS_WIN) && !defined(MRMUSIC_NO_WINRT)
 
 // ---------------------------------------------------------------------------
 // Windows: SystemMediaTransportControls
@@ -271,17 +271,16 @@ public:
         m_artist = artist;
         m_album = album;
         m_cover = coverUrl;
-        emit propertiesChanged();
     }
 
     void setPlaybackState(bool playing) override
     {
         m_playing = playing;
-        emit propertiesChanged();
     }
 
-signals:
-    void propertiesChanged();
+    // NOTE: this class deliberately has no Q_OBJECT (it lives in a .cpp), so
+    // it cannot declare Qt signals. D-Bus PropertiesChanged notifications are
+    // not emitted by this skeleton implementation (see README §7).
 
 private:
     bool m_available = false;
@@ -403,7 +402,7 @@ public:
 
 MediaControls *MediaControls::create(QObject *parent)
 {
-#if defined(Q_OS_WIN)
+#if defined(Q_OS_WIN) && !defined(MRMUSIC_NO_WINRT)
     return new WindowsMediaControls(parent);
 #elif defined(MRMUSIC_HAVE_DBUS)
     return new MprisMediaControls(parent);

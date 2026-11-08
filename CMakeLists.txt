@@ -110,7 +110,14 @@ target_compile_definitions(mrmusic_core PUBLIC
     MRMUSIC_VERSION="${PROJECT_VERSION}"
 )
 
-if(TARGET Qt6::DBus)
+option(MRMUSIC_NO_WINRT "Disable Windows SMTC (C++/WinRT) integration" OFF)
+
+# MPRIS is a freedesktop/Linux D-Bus spec. Qt ships a Qt6::DBus target on
+# Windows and macOS too, but using MprisMediaControls there is wrong (and on
+# macOS it produced an undefined symbol for that .cpp-only skeleton class).
+# Only enable the DBus/MPRIS backend on Linux; other platforms fall back to
+# their native (or Null) implementation in MediaControls::create().
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET Qt6::DBus)
     target_link_libraries(mrmusic_core PUBLIC Qt6::DBus)
     target_compile_definitions(mrmusic_core PRIVATE MRMUSIC_HAVE_DBUS)
 endif()
@@ -142,7 +149,7 @@ if(WIN32)
         endif()
     endforeach()
 
-    if(WINSDK_CPPWINRT)
+    if(WINSDK_CPPWINRT AND NOT MRMUSIC_NO_WINRT)
         message(STATUS "MrMusic: C++/WinRT from ${WINSDK_CPPWINRT}")
         target_include_directories(mrmusic_core PRIVATE "${WINSDK_CPPWINRT}")
         target_link_libraries(mrmusic_core PUBLIC windowsapp)
@@ -210,6 +217,19 @@ target_link_libraries(MrMusic PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
 )
+
+# Qt places an executable QML module's tooling output (qmldir/qmltypes/dir-map)
+# in <build>/MrMusic/. On Linux the executable has no suffix and is also named
+# "MrMusic", so the linker fails with
+#   "cannot open output file MrMusic: Is a directory".
+# Put the built executable in <build>/bin/ on Linux only; install(TARGETS)
+# still installs it as bin/MrMusic, so every packaging script is unchanged.
+# Windows (.exe) and macOS (.app) have distinct paths and are unaffected.
+if(UNIX AND NOT APPLE AND NOT ANDROID)
+    set_target_properties(MrMusic PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
 
 if(ANDROID)
     set_target_properties(MrMusic PROPERTIES

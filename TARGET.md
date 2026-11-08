@@ -231,6 +231,11 @@
      - ③ **不是镜像问题**：Qt 6.11 起 Windows 仓库改版为 `qt6_6111/qt6_6111_msvc2022_64/Updates.xml`（官方实测 200），而 aqt 3.3.0（PyPI 最新）仍拼老路径 `qt6_6111/qt6_6111/Updates.xml`（官方实测 404）；Linux/macOS 6.11.1 仍是老布局故不受影响。aqtinstall master 已加入 `EXTENSIONS_WIN_X64_QT6_11` 修复，但尚未发布。Windows job 用 `aqtsource: https://codeload.github.com/miurahr/aqtinstall/tar.gz/5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7` 装修复版（`v3.3.1.dev168`），用 tarball 而非 git 协议更稳。
      - 本地用该 aqt 版本 `--dry-run` 验证：Windows 正确解析新布局并落盘 `6.11.1/msvc2022_64`（与 install-qt-action 计算的 `QT_ROOT_DIR` 一致），`qtmultimedia` 在下载列表内；aqt 3.3.0 在 Linux 上带 `--modules qtmultimedia` 亦能正确解析。
 28. **提交、推送并用 gh cli 跟踪 CI（本轮）：** 完成后依次执行 `git add .`、`git commit -m "修复构建"`、`git push -u origin main`，然后用 **GitHub CLI（`gh`）** 查看本次 push 触发的工作流运行情况；**若仍有失败，按日志继续修复并重复「改 → 提交 → 推送 → 查看」直到成功或明确受阻**。
+   - **第 1 轮 gh 跟踪结果**：`gh run list` / `gh run view` / `gh api .../actions/jobs/<id>/logs` 显示上一轮修复已让三个平台全部通过 Configure（说明 `modules: qtmultimedia` 与 Windows aqt 修复生效），但 **Build/link 阶段三个平台各自失败**，根因与修复：
+     - **Linux** `ld: cannot open output file MrMusic: Is a directory`：Qt 把可执行 QML 模块的 tooling 输出放在 `<build>/MrMusic/`，与 Linux 无后缀可执行文件同名。给 Linux 目标设置 `RUNTIME_OUTPUT_DIRECTORY=<build>/bin`（install 规则不变，打包脚本零改动）。
+     - **macOS** `Undefined symbols: MprisMediaControls::propertiesChanged()`：该类在 `.cpp` 内声明 `signals:` 但无 `Q_OBJECT`，moc 不生成实现；且 MPRIS 是 Linux D-Bus 规范，本不该在 macOS 启用。删除该无效 signal，并把 `MRMUSIC_HAVE_DBUS` 限定为 `CMAKE_SYSTEM_NAME STREQUAL "Linux"`。
+     - **Windows** `LNK2019 WINRT_IMPL_RoGetActivationFactory / RoOriginateLanguageException`：CI 的 CMake 探测不到 C++/WinRT 头 → 定义 `MRMUSIC_NO_WINRT` 且不链 `windowsapp.lib`，但该宏**此前在源码中从未被使用**，WinRT 代码仍被编译。给 `MediaControls.cpp` 的 WinRT 分支加 `&& !defined(MRMUSIC_NO_WINRT)`，并把 `MRMUSIC_NO_WINRT` 提升为正式 CMake option。
+   - **验证**：本机 Windows 正常构建仍启用 SMTC（`windowsapp` 在链接行）+ 自检通过；另以 `-DMRMUSIC_NO_WINRT=ON` 模拟 CI 构建，`MrMusic.exe` / `mrmusic_selftest.exe` 均生成、自检通过、`MediaControls.obj` 无 `WINRT_IMPL_*` 符号。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 
