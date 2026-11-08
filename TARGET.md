@@ -236,6 +236,7 @@
      - **macOS** `Undefined symbols: MprisMediaControls::propertiesChanged()`：该类在 `.cpp` 内声明 `signals:` 但无 `Q_OBJECT`，moc 不生成实现；且 MPRIS 是 Linux D-Bus 规范，本不该在 macOS 启用。删除该无效 signal，并把 `MRMUSIC_HAVE_DBUS` 限定为 `CMAKE_SYSTEM_NAME STREQUAL "Linux"`。
      - **Windows** `LNK2019 WINRT_IMPL_RoGetActivationFactory / RoOriginateLanguageException`：CI 的 CMake 探测不到 C++/WinRT 头 → 定义 `MRMUSIC_NO_WINRT` 且不链 `windowsapp.lib`，但该宏**此前在源码中从未被使用**，WinRT 代码仍被编译。给 `MediaControls.cpp` 的 WinRT 分支加 `&& !defined(MRMUSIC_NO_WINRT)`，并把 `MRMUSIC_NO_WINRT` 提升为正式 CMake option。
    - **验证**：本机 Windows 正常构建仍启用 SMTC（`windowsapp` 在链接行）+ 自检通过；另以 `-DMRMUSIC_NO_WINRT=ON` 模拟 CI 构建，`MrMusic.exe` / `mrmusic_selftest.exe` 均生成、自检通过、`MediaControls.obj` 无 `WINRT_IMPL_*` 符号。
+   - **第 2 轮 gh 跟踪结果**：三平台 Build + Self test **全部通过**；仅 Linux `Package AppImage` 失败：`file RPATH_SET could not write new RPATH ... The replacement path is too long for the RUNPATH entry`（Qt 部署脚本给插件写更长的 `$ORIGIN/../../lib/x86_64-linux-gnu`，而 CMake 的 `file(RPATH_SET)` 只能定长原地替换）。修复：CI 与 `scripts/package-linux.sh` 的 configure 增加 `-DQT_DEPLOY_USE_PATCHELF=ON`，让 Qt 用已安装的 `patchelf` 改写 RUNPATH（可增长），而非 CMake 定长 API。本地实测该 `-D` 会写入生成的 `.qt/QtDeploySupport.cmake`（`__QT_DEPLOY_USE_PATCHELF "ON"`）。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 

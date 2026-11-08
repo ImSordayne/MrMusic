@@ -9,7 +9,8 @@ BUILD_DIR="${BUILD_DIR:-build}"
 DIST_DIR="${DIST_DIR:-dist}"
 
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/usr
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DQT_DEPLOY_USE_PATCHELF=ON
 cmake --build "$BUILD_DIR"
 
 rm -rf AppDir "$DIST_DIR"
