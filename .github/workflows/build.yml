@@ -1,27 +1,49 @@
 name: build
 
-# 自动构建 MrMusic：
-#   * push / PR  -> Windows、Linux、macOS 全量构建 + 单元自检 + 打包
-#   * tag v*     -> 额外构建 Android APK，并创建 GitHub Release 附带全部产物
-#   * 手动触发   -> 可指定 Qt 版本，可选是否构建 Android
+# 自动构建 MrMusic（TARGET.md §10.29）：
+#   * push（main/master）/ pull_request / workflow_dispatch
+#       -> Windows、Linux、macOS、Android 全量构建 + 自检 + 打包
+#       -> 每次都按 VERSION 发布 Release（CHANGLOG.md 作为说明）
+#   * 仅改动文档类文件时不触发；仓库中存在 NO_BUILD 时全部构建/发版 job 跳过
+#   * 本地开发仍遵守 §9.14：不主动构建 Android APK
 
 on:
   push:
     branches: [main, master]
-    tags: ['v*']
+    # GitHub paths-ignore: 只有当本次 push 的「所有」变更文件都命中时才跳过。
+    # 与代码同批提交的文档不会让工作流跳过（正是期望行为）。
+    paths-ignore:
+      - 'LICENSE'
+      - 'README.md'
+      - 'TARGET.md'
+      - 'PERSONAL.md'
+      - 'API_ENDPOINTS.md'
+      - 'VERSION'
+      - 'CHANGLOG.md'
+      - 'CHANGELOG.md'
+      - 'NO_BUILD'
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - 'LICENSE'
+      - 'README.md'
+      - 'TARGET.md'
+      - 'PERSONAL.md'
+      - 'API_ENDPOINTS.md'
+      - 'VERSION'
+      - 'CHANGLOG.md'
+      - 'CHANGELOG.md'
+      - 'NO_BUILD'
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       qt_version:
         description: 'Qt version to build against'
         required: false
         default: '6.11.1'
-      build_android:
-        description: 'Also build the Android arm64 APK'
-        type: boolean
-        required: false
-        default: false
 
 permissions:
   contents: write
@@ -38,10 +60,54 @@ env:
 
 jobs:
   # ===========================================================================
+  # Gate: NO_BUILD is a repository file, so it cannot be evaluated in `on:`.
+  # This job checks it out and exposes an output; every real job depends on it.
+  # ===========================================================================
+  precheck:
+    name: Precheck (NO_BUILD / VERSION)
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.gate.outputs.build }}
+      version: ${{ steps.ver.outputs.version }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check NO_BUILD sentinel
+        id: gate
+        run: |
+          if [ -f NO_BUILD ]; then
+            echo "NO_BUILD present - skipping all build/release jobs"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read VERSION and decide pre-release
+        id: ver
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ -z "$version" ]; then
+            echo "VERSION is empty" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # -alpha / -beta / -bata / -dev (optionally followed by .N)
+          if printf '%s' "$version" | grep -Eqi '\-(alpha|beta|bata|dev)(\.[0-9]+)?$'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "VERSION=$version -> pre-release"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "VERSION=$version -> stable release"
+          fi
+
+  # ===========================================================================
   # Windows x64 (首要平台)
   # ===========================================================================
   windows:
     name: Windows x64
+    needs: precheck
+    if: needs.precheck.outputs.build == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -105,6 +171,8 @@ jobs:
   # ===========================================================================
   linux:
     name: Linux x64
+    needs: precheck
+    if: needs.precheck.outputs.build == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -162,6 +230,8 @@ jobs:
   # ===========================================================================
   macos:
     name: macOS
+    needs: precheck
+    if: needs.precheck.outputs.build == 'true'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -206,13 +276,14 @@ jobs:
           retention-days: 14
 
   # ===========================================================================
-  # Android arm64 (默认只在打 tag 或手动勾选时构建 —— 见 TARGET.md §9.14)
+  # Android arm64 (每次 CI 都构建 —— 见 TARGET.md §10.29；仅本地开发遵守 §9.14)
   # ===========================================================================
   android:
     name: Android arm64
+    needs: precheck
+    if: needs.precheck.outputs.build == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 90
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.build_android)
     steps:
       - uses: actions/checkout@v4
 
@@ -280,14 +351,19 @@ jobs:
           retention-days: 14
 
   # ===========================================================================
-  # Release（打 tag 时把各平台产物挂到 Release 上）
+  # Release（每次 CI 都发版，见 TARGET.md §10.29）
+  #   * 版本号 = VERSION 文件内容
+  #   * VERSION 以 -alpha/-beta/-bata/-dev 结尾 -> pre-release
+  #   * 说明文字 = CHANGLOG.md（兼容 CHANGELOG.md）
   # ===========================================================================
   release:
     name: Publish release
     runs-on: ubuntu-latest
-    needs: [windows, linux, macos, android]
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [precheck, windows, linux, macos, android]
+    if: needs.precheck.outputs.build == 'true'
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -296,10 +372,24 @@ jobs:
       - name: List artifacts
         run: ls -R artifacts
 
+      - name: Pick changelog file
+        id: changelog
+        run: |
+          if [ -f CHANGLOG.md ]; then
+            echo "path=CHANGLOG.md" >> "$GITHUB_OUTPUT"
+          elif [ -f CHANGELOG.md ]; then
+            echo "path=CHANGELOG.md" >> "$GITHUB_OUTPUT"
+          else
+            echo "No CHANGLOG.md / CHANGELOG.md found" >&2
+            exit 1
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
-          name: MrMusic ${{ github.ref_name }}
+          tag_name: ${{ needs.precheck.outputs.version }}
+          name: MrMusic ${{ needs.precheck.outputs.version }}
+          body_path: ${{ steps.changelog.outputs.path }}
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.precheck.outputs.prerelease == 'true' }}
           files: artifacts/**
-          generate_release_notes: true
+          generate_release_notes: false

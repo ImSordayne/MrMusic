@@ -260,10 +260,18 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 
 | 触发 | 行为 |
 | --- | --- |
-| `push`（main / master） | 构建 Windows + Linux + macOS，跑 `mrmusic_selftest`，上传三份产物 |
-| `pull_request` | 同上（用于验证 PR，可自动取消旧运行） |
-| `push` tag `v*` | 在上一行基础上**额外构建 Android APK**，并把所有产物发布到 GitHub Release |
-| `workflow_dispatch` | 手动触发，可指定 `qt_version`，并用 `build_android` 勾选是否构建 APK |
+| `push`（main / master） | 构建 Windows + Linux + macOS + **Android**，跑 `mrmusic_selftest`，上传四份产物，并**按 `VERSION` 发布 Release** |
+| `pull_request` | 同上（可自动取消旧运行），但不发 Release |
+| `workflow_dispatch` | 手动触发，可指定 `qt_version` |
+| 仅改动文档类文件 | **不触发**：`LICENSE`、`README.md`、`TARGET.md`、`PERSONAL.md`、`API_ENDPOINTS.md`、`VERSION`、`CHANGLOG.md` / `CHANGELOG.md`、`NO_BUILD`、`*.md`、`docs/**`（`paths-ignore`：本次所有变更文件都命中才跳过） |
+| 仓库存在 `NO_BUILD` 文件 | 由 `precheck` job 检测，全部构建/发版 job 跳过（run 仍会创建，但无实际构建） |
+
+发版规则（`release` job，每次 CI 都执行，见 `TARGET.md §10.29`）：
+
+* 版本号 = 仓库根目录 `VERSION` 文件的内容（需非空，作为 tag / release 名，不加 `v` 前缀）。
+* `VERSION` 以 `-alpha` / `-beta` / `-bata` / `-dev` 结尾（可带 `.数字`，大小写不敏感）→ 发布为 **pre-release**，否则为正式版。
+* Release 说明取 `CHANGLOG.md`（不存在时回退 `CHANGELOG.md`），不使用自动生成的 notes。
+* 注意：`VERSION` 属于 `paths-ignore`，**只改版本号不会触发工作流**；需同时改动代码/其他文件，或手动 `workflow_dispatch` 触发。
 
 产物（`actions/upload-artifact`，保留 14 天）：
 
@@ -273,7 +281,7 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 | `linux`（`ubuntu-22.04`） | `MrMusic-linux-x64-appimage` | `linuxdeploy` 生成 AppImage（`APPIMAGE_EXTRACT_AND_RUN=1`，适配无 FUSE 的容器） |
 | `macos`（`macos-15`） | `MrMusic-macos` | `macdeployqt` 生成 dmg |
 | `android`（`ubuntu-22.04`） | `MrMusic-android-arm64` | NDK `27.2.12479018` + JDK 17；`scripts/build-android.sh` 构建并用 `apksigner` 自签名 |
-| `release` | GitHub Release | 仅 tag 触发，汇总全部产物并自动生成变更说明 |
+| `release` | GitHub Release | 汇总全部产物，说明取自 `CHANGLOG.md` |
 
 要点与配置：
 
@@ -282,6 +290,7 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 * Android 签名：仓库 Secret `ANDROID_KEYSTORE_BASE64`（`base64` 后的 keystore）可选；未配置时 CI 现场生成一次性自签名证书（口令 `mrmusic`，别名 `mrmusic`）。
 * 所有桌面 job 显式安装 `qtmultimedia` 模块（`modules: qtmultimedia`），因为 `CMakeLists.txt` 要求 `Qt6::Multimedia`，而 install-qt-action 默认只装基础模块；Android 目标 Qt 不装（该仓库无此 addon）。
 * Windows job 通过 `aqtsource` 使用 aqtinstall 的 6.11-Windows-布局修复版（tarball）：Qt 6.11 起 Windows 仓库目录改为 `qt6_6111_msvc2022_64/`，PyPI 上的 aqt 3.3.0 尚不认识，会报 `Failed to locate XML data`。
-* Android job 默认**不随普通 push 运行**（符合 TARGET.md §9.14：APK 仅在明确需要时构建）。
+* Android job **每次 CI 都构建**（`TARGET.md §10.29`）；§9.14「不主动构建 APK」只约束本地开发。
 * `windows` / `linux` / `macos` 三个 job 会执行 `mrmusic_selftest`（AES/RSA/PBKDF2/inflate/指纹自检），失败即中断；`android` 与 `release` job 不跑自检（前者只构建 APK，后者只汇总产物）。
-* 首次真实运行（2026-11-08）修复了以上三类失败；该工作流仍建议在推送后按实际 Runner 环境复核。
+* Linux 的 configure 带 `-DQT_DEPLOY_USE_PATCHELF=ON`，让 Qt 用 `patchelf` 改写插件 RUNPATH（CMake 的 `file(RPATH_SET)` 只能定长替换，会失败）。
+* 历史修复记录（首次真实运行的三类失败、后续 Build/link 与 AppImage 打包问题）见 `TARGET.md §10.27`–`§10.28`。

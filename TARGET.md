@@ -238,6 +238,19 @@
    - **验证**：本机 Windows 正常构建仍启用 SMTC（`windowsapp` 在链接行）+ 自检通过；另以 `-DMRMUSIC_NO_WINRT=ON` 模拟 CI 构建，`MrMusic.exe` / `mrmusic_selftest.exe` 均生成、自检通过、`MediaControls.obj` 无 `WINRT_IMPL_*` 符号。
    - **第 2 轮 gh 跟踪结果**：三平台 Build + Self test **全部通过**；仅 Linux `Package AppImage` 失败：`file RPATH_SET could not write new RPATH ... The replacement path is too long for the RUNPATH entry`（Qt 部署脚本给插件写更长的 `$ORIGIN/../../lib/x86_64-linux-gnu`，而 CMake 的 `file(RPATH_SET)` 只能定长原地替换）。修复：CI 与 `scripts/package-linux.sh` 的 configure 增加 `-DQT_DEPLOY_USE_PATCHELF=ON`，让 Qt 用已安装的 `patchelf` 改写 RUNPATH（可增长），而非 CMake 定长 API。本地实测该 `-D` 会写入生成的 `.qt/QtDeploySupport.cmake`（`__QT_DEPLOY_USE_PATCHELF "ON"`）。
    - **最终结果**：gh 跟踪到 run `42452225408`（`8fac51e`）`conclusion=success`——`Windows x64` / `macOS` / `Linux x64` 三个 job 全部通过，三份产物均上传（`MrMusic-windows-x64` 76.8 MB、`MrMusic-linux-x64-appimage` 60.6 MB、`MrMusic-macos` 79.8 MB）；`Android arm64` 与 `Publish release` 按设计未触发（非 tag）。仅剩 `actions/checkout@v4` 等 Node.js 20 弃用警告，不影响构建。
+29. **CI 触发与发版规则改版（本轮，覆盖 §9.14 的 CI 部分与 §9.15）：** 用户要求逐条如下：
+    1. **workflow 在正常情况下也构建 Android**（每次 CI 都构建 arm64 APK）；§9.14「除非明确要求不构建 Android APK」**只约束本地开发**，CI 不受此限。
+    2. **每次都执行 Publish release**，版本号取仓库根目录 `VERSION` 文件的内容（作为 tag / release 版本，不加额外前缀）。
+    3. `VERSION` 内容以 `-alpha` / `-bata` / `-dev` 结尾时，release 推送为 **pre-release**。
+    4. release 的 **Changelog 取 `CHANGLOG.md` 内容**（`body_path`），不用自动生成的 notes。
+    5. **新增触发排除规则**：仅推送 `LICENSE` / `README.md` / `TARGET.md` / `VERSION` 等文档类文件时不触发工作流；仓库中存在 `NO_BUILD` 文件时也不触发工作流。
+    - **实现解读（写在此处供复核）**：
+      - 文件名按用户原文 `CHANGLOG.md`（注意与常见 `CHANGELOG.md` 拼写不同）；workflow 同时兼容 `CHANGELOG.md`（优先 `CHANGLOG.md`），避免之后改名失效。预发布后缀同时识别 `-bata` 与常见的 `-beta`（用户原文 `-bata` 疑为笔误），即后缀 `-(alpha|beta|bata|dev)`（可带 `.数字`）。
+      - `paths-ignore` 具体化为：`LICENSE`、`README.md`、`TARGET.md`、`PERSONAL.md`、`API_ENDPOINTS.md`、`VERSION`、`CHANGLOG.md`、`CHANGELOG.md`、`NO_BUILD`、`**.md`、`docs/**`。GitHub 的 `paths-ignore` 语义是「**当且仅当本次所有变更文件都命中**」才跳过，与代码同批提交的文档不会让工作流跳过。
+      - `NO_BUILD` 无法在 `on:` 阶段读取仓库文件内容（GitHub 不支持），因此新增 `precheck` job（checkout 后 `test -f NO_BUILD`），其余 job `needs: precheck` 且 `if: needs.precheck.outputs.build == 'true'`。**技术限制**：此时 run 仍会被创建，但全部构建/发版 job 被跳过；同时把 `NO_BUILD` 也列入 `paths-ignore`（推送该文件本身亦不触发）。`NO_BUILD` 不加入 `.gitignore`，以便可提交为全局开关。
+      - 去掉 `on.push.tags: ['v*']`（新模型按 `VERSION` 发版，保留 tag 触发会在同一次 push 产生重复 release）；`workflow_dispatch` 的 `build_android` 输入删除（Android 恒构建），保留 `qt_version`。
+      - `VERSION` 初始值取 `CMakeLists.txt` 的 `project(VERSION 0.1.0)` → `0.1.0`；`CHANGLOG.md` 建立一个初始条目。
+      - 覆盖说明：§9.14 仍约束**本地**（不主动构建 APK、日常只做 Windows 构建+自检+截图）；§9.15 中「tag 才构建 Android / 才发 Release」由此条取代。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 
