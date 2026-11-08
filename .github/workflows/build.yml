@@ -335,9 +335,15 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: linux
+          # Qt 6.11 moved the Android packages to the "all_os/android" repo;
+          # "linux/android" only carries up to 6.7.3. aqt 3.3.0 (PyPI) also
+          # cannot install from all_os, so use the aqtinstall fix (same commit
+          # as the Windows job) which adds all_os/android support.
+          host: all_os
           target: android
           arch: android_arm64_v8a
+          modules: qtmultimedia
+          aqtsource: https://codeload.github.com/miurahr/aqtinstall/tar.gz/5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7
           dir: ${{ runner.temp }}/QtAndroid
           set-env: false
           cache: true
