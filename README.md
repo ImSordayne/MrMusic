@@ -271,7 +271,7 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 | --- | --- | --- |
 | `windows`（`windows-latest`） | `MrMusic-windows-x64.zip` | MSVC + Ninja 构建，`windeployqt` 部署后 `Compress-Archive` 打包 `dist/bin/` |
 | `linux`（`ubuntu-22.04`） | `MrMusic-linux-x64-appimage` | `linuxdeploy` 生成 AppImage（`APPIMAGE_EXTRACT_AND_RUN=1`，适配无 FUSE 的容器） |
-| `macos`（`macos-14`） | `MrMusic-macos` | `macdeployqt` 生成 dmg |
+| `macos`（`macos-15`） | `MrMusic-macos` | `macdeployqt` 生成 dmg |
 | `android`（`ubuntu-22.04`） | `MrMusic-android-arm64` | NDK `27.2.12479018` + JDK 17；`scripts/build-android.sh` 构建并用 `apksigner` 自签名 |
 | `release` | GitHub Release | 仅 tag 触发，汇总全部产物并自动生成变更说明 |
 
@@ -280,6 +280,8 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 * Qt 版本由 `env.QT_VERSION` 控制（默认 `6.11.1`），通过 `jurplel/install-qt-action` 安装并启用缓存。
 * Windows 用 `ilammy/msvc-dev-cmd` 注入 MSVC 环境；若镜像缺少 Ninja 会 `choco install ninja`。
 * Android 签名：仓库 Secret `ANDROID_KEYSTORE_BASE64`（`base64` 后的 keystore）可选；未配置时 CI 现场生成一次性自签名证书（口令 `mrmusic`，别名 `mrmusic`）。
+* 所有桌面 job 显式安装 `qtmultimedia` 模块（`modules: qtmultimedia`），因为 `CMakeLists.txt` 要求 `Qt6::Multimedia`，而 install-qt-action 默认只装基础模块；Android 目标 Qt 不装（该仓库无此 addon）。
+* Windows job 通过 `aqtsource` 使用 aqtinstall 的 6.11-Windows-布局修复版（tarball）：Qt 6.11 起 Windows 仓库目录改为 `qt6_6111_msvc2022_64/`，PyPI 上的 aqt 3.3.0 尚不认识，会报 `Failed to locate XML data`。
 * Android job 默认**不随普通 push 运行**（符合 TARGET.md §9.14：APK 仅在明确需要时构建）。
 * `windows` / `linux` / `macos` 三个 job 会执行 `mrmusic_selftest`（AES/RSA/PBKDF2/inflate/指纹自检），失败即中断；`android` 与 `release` job 不跑自检（前者只构建 APK，后者只汇总产物）。
-* 该工作流尚未在真实 GitHub Runner 上跑通，首次推送可能需要按实际环境微调（Qt 6.11.1 的 aqt 可用性、Linux 依赖、AppImage 的 linuxdeploy 下载等）。
+* 首次真实运行（2026-11-08）修复了以上三类失败；该工作流仍建议在推送后按实际 Runner 环境复核。

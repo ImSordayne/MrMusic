@@ -66,6 +66,11 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: windows
           arch: win64_msvc2022_64
+          modules: qtmultimedia
+          # aqt 3.3.0 (PyPI) still assumes the pre-6.11 Windows repo
+          # layout; Qt 6.11 split it into qt6_6111_msvc2022_64/.
+          # Use the aqtinstall commit that adds EXTENSIONS_WIN_X64_QT6_11.
+          aqtsource: https://codeload.github.com/miurahr/aqtinstall/tar.gz/5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7
           cache: true
 
       - name: Configure
@@ -125,6 +130,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: linux
           arch: linux_gcc_64
+          modules: qtmultimedia
           cache: true
 
       - name: Configure
@@ -155,7 +161,7 @@ jobs:
   # ===========================================================================
   macos:
     name: macOS
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -166,6 +172,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: mac
           arch: clang_64
+          modules: qtmultimedia
           cache: true
 
       - name: Configure
@@ -229,6 +236,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: linux
           arch: linux_gcc_64
+          modules: qtmultimedia
           dir: ${{ runner.temp }}/QtHost
           set-env: false
           cache: true

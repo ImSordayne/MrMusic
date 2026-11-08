@@ -224,6 +224,12 @@
 25. **审查 README.md 的严谨性（本轮，用户澄清）：** 先逐条核对 README.md 与代码 / 文件系统的实际情况，**列出不严谨、过时或与实现不符之处**，确认后再修改；不直接重写。重点核对：私有路径是否仍写死（见 §10.24）、徽章与外链、功能状态表里的类名、QML 上下文属性清单、开发开关清单、截图说明、目录结构与 CI 描述。
    - **已完成**：审查清单交由用户确认后按条修正 README.md——私有路径改占位符并说明从 `PERSONAL.md` 读取；修掉失实的类名 `ApiClient`、CI「所有 job 都跑自检」、版本号 0.0.1、无效徽章/空链接；补齐 `browse` 上下文属性、`BrowseController`/`CatalogModel`/`IconProvider`/`QrCode`、14 个开发开关与 10 张截图清单、目录结构缺项；修正指纹实现与 `library.json` 描述；外链补 `https://`。
 26. **提交并推送（本轮交付动作）：** 文档整理完成后执行 `git add .`、`git commit -m "提交代码"`、`git push -u origin main`。注意 `PERSONAL.md` 含本机私有路径，必须保持被 `.gitignore` 忽略，不得进入版本库；`build/`、`dist/`、`*.apk` 等构建产物同样不得提交。
+27. **修复 GitHub Actions 首次真实运行的失败（本轮）：** 依据 `D:\tmp\action_logs\` 的 CI 日志排查并修复，至少包括：① macOS job 报 `The configuration 'macos-14-arm64-us-default' is not supported`；② Linux `Configure` 阶段 `find_package` 找不到 Qt `Multimedia` 组件（install-qt-action 需显式装模块）；③ Windows `Install Qt` 阶段 aqt 找不到 Qt `6.11.1` 的 `Updates.xml`。修复后保持 Windows x64 本机构建 + 自检通过，并重新提交推送。
+   - **根因与修复（均已实测验证）**：
+     - ① `macos-14` 已退役，runner 分配阶段即失败；改为 `macos-15`（用户提供的 runner 表中 macOS 可用标签）。
+     - ② install-qt-action 默认不装 addon，日志显示只下载了 qtbase/qtsvg/qtdeclarative…，而 `CMakeLists.txt:21` 要求 `Qt6::Multimedia`；给 Windows/Linux/macOS 与 Android host Qt 的安装步骤加 `modules: qtmultimedia`。Android 目标 Qt **不加**（实测 Android 6.11 仓库的 `Updates.xml` 不含 qtmultimedia 包，加了会报错）。
+     - ③ **不是镜像问题**：Qt 6.11 起 Windows 仓库改版为 `qt6_6111/qt6_6111_msvc2022_64/Updates.xml`（官方实测 200），而 aqt 3.3.0（PyPI 最新）仍拼老路径 `qt6_6111/qt6_6111/Updates.xml`（官方实测 404）；Linux/macOS 6.11.1 仍是老布局故不受影响。aqtinstall master 已加入 `EXTENSIONS_WIN_X64_QT6_11` 修复，但尚未发布。Windows job 用 `aqtsource: https://codeload.github.com/miurahr/aqtinstall/tar.gz/5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7` 装修复版（`v3.3.1.dev168`），用 tarball 而非 git 协议更稳。
+     - 本地用该 aqt 版本 `--dry-run` 验证：Windows 正确解析新布局并落盘 `6.11.1/msvc2022_64`（与 install-qt-action 计算的 `QT_ROOT_DIR` 一致），`qtmultimedia` 在下载列表内；aqt 3.3.0 在 Linux 上带 `--modules qtmultimedia` 亦能正确解析。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 
