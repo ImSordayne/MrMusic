@@ -230,6 +230,7 @@
      - ② install-qt-action 默认不装 addon，日志显示只下载了 qtbase/qtsvg/qtdeclarative…，而 `CMakeLists.txt:21` 要求 `Qt6::Multimedia`；给 Windows/Linux/macOS 与 Android host Qt 的安装步骤加 `modules: qtmultimedia`。Android 目标 Qt **不加**（实测 Android 6.11 仓库的 `Updates.xml` 不含 qtmultimedia 包，加了会报错）。
      - ③ **不是镜像问题**：Qt 6.11 起 Windows 仓库改版为 `qt6_6111/qt6_6111_msvc2022_64/Updates.xml`（官方实测 200），而 aqt 3.3.0（PyPI 最新）仍拼老路径 `qt6_6111/qt6_6111/Updates.xml`（官方实测 404）；Linux/macOS 6.11.1 仍是老布局故不受影响。aqtinstall master 已加入 `EXTENSIONS_WIN_X64_QT6_11` 修复，但尚未发布。Windows job 用 `aqtsource: https://codeload.github.com/miurahr/aqtinstall/tar.gz/5a49f2b391ae8ee1d3c0dd87f8b33c1d49a4deb7` 装修复版（`v3.3.1.dev168`），用 tarball 而非 git 协议更稳。
      - 本地用该 aqt 版本 `--dry-run` 验证：Windows 正确解析新布局并落盘 `6.11.1/msvc2022_64`（与 install-qt-action 计算的 `QT_ROOT_DIR` 一致），`qtmultimedia` 在下载列表内；aqt 3.3.0 在 Linux 上带 `--modules qtmultimedia` 亦能正确解析。
+28. **提交、推送并用 gh cli 跟踪 CI（本轮）：** 完成后依次执行 `git add .`、`git commit -m "修复构建"`、`git push -u origin main`，然后用 **GitHub CLI（`gh`）** 查看本次 push 触发的工作流运行情况；**若仍有失败，按日志继续修复并重复「改 → 提交 → 推送 → 查看」直到成功或明确受阻**。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 
