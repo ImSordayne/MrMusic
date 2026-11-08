@@ -254,6 +254,7 @@
    - **第 1 轮 gh 跟踪（run `42456439992`）失败与修复**：
      - **Windows / macOS / Android 的 Build 全部失败**，根因是新增的 `VERSION` 文件在大小写不敏感文件系统上被当成 C++20 标准头 `<version>`（Qt 6.11 的 `qtconfiginclude.h` 会 `#include <version>`），编译器把 `0.1.0` 当源码解析（`expected unqualified-id` / `C2059`）。`qt_add_qml_module()` 会无条件把仓库根目录加入 `MrMusic` 的 include 路径（QTBUG-93443）。修复：关掉多余的 `CMAKE_INCLUDE_CURRENT_DIR`，并在 `qt_add_qml_module` 之后从 `MrMusic` target 的 `INCLUDE_DIRECTORIES` 移除 `CMAKE_CURRENT_SOURCE_DIR`（项目内所有 `#include` 都走 `src/`，不依赖根目录）。本机 Windows 构建 + 自检复验通过。
      - **Android `Setup Android SDK` 失败**：`android-actions/setup-android@v3` 内部执行 `sdkmanager tools`，但新版 SDK 镜像已无该旧包 → `Failed to find package 'tools'`。修复：去掉该 action，直接用 runner 预装的 `sdkmanager --install "ndk;..." "platforms;android-34" "build-tools;34.0.0"` 并设置 `ANDROID_SDK_ROOT` / `ANDROID_NDK_ROOT`（回退 `ANDROID_HOME`）。
+   - **第 2 轮 gh 跟踪（run `42457274058`）**：Windows / Linux / macOS / precheck **全部通过**；仅 Android `Install NDK` 报 `sdkmanager: command not found`（exit 127）——去掉 `setup-android@v3` 后无人把 cmdline-tools 加进 PATH。修复：在步骤里用 `find "$SDK_ROOT/cmdline-tools" -name sdkmanager` 动态定位（不硬编码 `16.0`），把其目录写入 `$GITHUB_PATH`，并显式导出 `ANDROID_SDK_ROOT` / `ANDROID_HOME` / `ANDROID_NDK_ROOT`。本机用等价 bash 表达式验证了路径拼接。
 
 **验证记录**：`mrmusic_catalogprobe`（`MRMUSIC_BUILD_PROBES=ON`）实测两个平台的专辑/MV 搜索、专辑详情与曲目、歌手详情/歌曲/专辑/MV 全部返回正确数据（网易云专辑 13 首曲目、酷狗专辑 11 首）；界面截图见 `docs/screenshots/album.png`、`artist.png`、`search-albums.png`。
 
