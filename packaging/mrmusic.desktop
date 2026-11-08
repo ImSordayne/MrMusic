@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=MrMusic
+GenericName=Music Player
+Comment=NetEase Cloud Music + KuGou music player
+Exec=MrMusic
+Icon=mrmusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;netease;kugou;
+StartupWMClass=MrMusic

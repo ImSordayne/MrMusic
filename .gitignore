@@ -1,0 +1,40 @@
+# build output
+/build/
+/build-android/
+/out/
+/dist/
+/.cache/
+/CMakeUserPresets.json
+
+# Qt Creator
+*.user
+*.user.*
+CMakeLists.txt.user*
+
+# data written by the application in dev runs
+/data/
+runtimes/
+
+# Android
+/android/build/
+/build-android/
+/android/.gradle/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+*.apk
+*.aab
+*.keystore
+
+# misc
+*.log
+*.qm.bak
+.DS_Store
+Thumbs.db
+*.swp
+
+# local machine paths (referenced by TARGET.md placeholders)
+/PERSONAL.md
+
+# UiDesign
+UiDesign/

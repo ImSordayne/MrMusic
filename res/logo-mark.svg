@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 200 200"
+   width="400"
+   height="400"
+   version="1.1"
+   id="svg5"
+   sodipodi:docname="Logo.svg"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs5" />
+  <sodipodi:namedview
+     id="namedview5"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#000000"
+     inkscape:zoom="1.4796209"
+     inkscape:cx="142.94202"
+     inkscape:cy="253.10537"
+     inkscape:window-width="1920"
+     inkscape:window-height="1051"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg5" />
+  <g
+     fill="none"
+     stroke="#1a1a1a"
+     stroke-width="12"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="g4"
+     transform="matrix(1.3157895,0,0,1.3157895,-31.578948,-31.310148)">
+    <!-- 底部帽檐 -->
+    <path
+       d="m 30,135 q 70,20 140,0"
+       id="path1" />
+    <path
+       d="m 57.75453,65.983588 q 42.102941,14.02764 84.20588,0"
+       id="path1-9"
+       style="stroke-width:7.79411" />
+    <path
+       d="m 57.959976,82.615888 q 42.102944,14.02764 84.205884,0"
+       id="path1-9-8"
+       style="stroke-width:7.79411" />
+    <!-- 帽冠部分 -->
+    <path
+       d="M 60,135 V 65 q 40,-15 80,0 v 70"
+       id="path2" />
+    <!-- 帽带 / 顶部横线 -->
+  </g>
+  <!-- 原来的两个音符圆点，变成帽子上的装饰物（类似护目镜或徽章） -->
+</svg>

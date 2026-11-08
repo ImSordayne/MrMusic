@@ -1,0 +1,36 @@
+<RCC>
+    <qresource prefix="/res">
+        <file>arrow-left.svg</file>
+        <file>clock-fill.svg</file>
+        <file>clock.svg</file>
+        <file>close.svg</file>
+        <file>download.svg</file>
+        <file>gear-fill.svg</file>
+        <file>gear.svg</file>
+        <file>heart-fill.svg</file>
+        <file>heart.svg</file>
+        <file>house-fill.svg</file>
+        <file>house.svg</file>
+        <file>next.svg</file>
+        <file>note.svg</file>
+        <file>pause.svg</file>
+        <file>play.svg</file>
+        <file>plus.svg</file>
+        <file>prev.svg</file>
+        <file>queue.svg</file>
+        <file>refresh.svg</file>
+        <file>repeat-one.svg</file>
+        <file>repeat.svg</file>
+        <file>search-clear.svg</file>
+        <file>search.svg</file>
+        <file>shuffle.svg</file>
+        <file>trash.svg</file>
+        <file>user.svg</file>
+        <file>volume-mute.svg</file>
+        <file>volume.svg</file>
+        <file>app.png</file>
+        <file>logo-mark.svg</file>
+        <file alias="i18n/mrmusic_en_US.qm">../translations/mrmusic_en_US.qm</file>
+    </qresource>
+</RCC>
+
