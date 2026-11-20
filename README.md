@@ -13,15 +13,15 @@
   <img src="https://img.shields.io/badge/Qt-6.11-blue.svg" alt="Qt 版本">
 </p>
 
-> **本机路径说明**：本文中的 `<大写占位符>`（如 `<QT_WINDOWS>`、`<ANDROID_SDK>`）都是本机私有路径，不写死在文档里；实际值记录在仓库根目录的 [`PERSONAL.md`](PERSONAL.md)（`# PERSONAL_PATH`，`KEY = VALUE`），该文件已加入 `.gitignore`，不进版本库。执行构建命令时把它们替换为 `PERSONAL.md` 里同名键的值即可。详见 `TARGET.md` 开头的「占位符约定」。
+> **本机路径说明**：本文中的 `<大写占位符>`（如 `<QT_WINDOWS>`、`<ANDROID_SDK>`）都是本机私有路径，不写死在文档里；实际值记录在仓库根目录的 [`PERSONAL.md`](PERSONAL.md)（`# PERSONAL_PATH`，`KEY = VALUE`），该文件已加入 `.gitignore`，不进版本库。执行构建命令时把它们替换为 `PERSONAL.md` 里同名键的值即可。详见 `REQUIREMENTS.md` 开头的「占位符约定」。
 
 ## 注意事项
 
 > [!IMPORTANT]
 >
-> - 需求来源：`TARGET.md`（本仓库根目录）。
+> - 目标来源：`TARGET.md`（只放项目目标）；需求与实现细节来源：`REQUIREMENTS.md`（均在仓库根目录）。
 > - 本软件完全由 AI 根据网络上公开 API 编写，与网易云音乐及酷狗音乐无任何从属或合作关系。
-> - 为方便其他开发者开发，保留了原始 `TARGET.md`。
+> - 为方便其他开发者开发，保留了 `TARGET.md`（项目目标）与 `REQUIREMENTS.md`（需求与实现说明）。
 
 ## 免责声明
 
@@ -67,7 +67,7 @@
 | 多类型搜索 | ✅ | 单曲 / 专辑 / MV 三档，两个平台合并，可「加载更多」；搜索页有返回按钮 |
 | 歌手页 / 专辑页 | ✅ | 歌曲行的歌手名、专辑名可点击进入详情；歌手页含音乐/专辑/MV 三页与「关注歌手」，专辑页含曲目与「收藏专辑」 |
 | MV 播放 | ✅ | 搜索结果 / 歌手页 MV / 收藏的 MV 点击即在播放器中播放（网易云 mp4、酷狗 mkv），「MV」按钮可弹出 16:9 视频窗口 |
-| 收藏走账号 API | ✅ 网易云 / 🚧 酷狗 | 收藏页分三种分页（歌曲 / 专辑 / MV），网易云已接：喜欢歌曲、收藏专辑与 MV 及其列表；酷狗侧暂只接了 MV 收藏列表，详见 TARGET.md §10 |
+| 收藏走账号 API | ✅ 网易云 / 🚧 酷狗 | 收藏页分三种分页（歌曲 / 专辑 / MV），网易云已接：喜欢歌曲、收藏专辑与 MV 及其列表；酷狗侧暂只接了 MV 收藏列表，详见 REQUIREMENTS.md §10 |
 | 封面完整性 | ✅ | 酷狗每日推荐本身不带封面，程序用 `/v2/get_res_privilege/lite` 批量补齐（实测 30/30 命中） |
 | 主题一致性 | ✅ | 侧栏/底部导航图标在深色主题下为白色、浅色主题下为黑色（选中态用 fill 变体 + 胶囊底色） |
 | UI 设计 | ✅ | 桌面侧栏 / 手机底部导航、图标 fill 变体、左下角双头像、列表项含「来源」 |
@@ -80,7 +80,8 @@
 MrMusic/
 ├── CMakeLists.txt
 ├── CMakePresets.json            # windows-msvc / android-arm64 预设
-├── TARGET.md                    # 需求文档（含占位符约定）
+├── TARGET.md                    # 项目目标（只放目标）
+├── REQUIREMENTS.md              # 需求与实现说明（技术约束、功能细则、变更记录、占位符约定）
 ├── README.md
 ├── API_ENDPOINTS.md             # 直连上游端点清单（"不使用代理接口" 的验收依据）
 ├── PERSONAL.md                  # 本机私有路径（已 .gitignore，不进版本库）
@@ -168,7 +169,7 @@ cmake --build build-android
 
 `scripts/build-android.ps1` 封装了同样的流程，并在最后用 `zipalign` + `apksigner` 生成自签名 APK。
 
-> **构建约定（TARGET.md §9.14）**：日常改动只做 Windows x64 构建 + 自检 + 截图验证；**Android APK 只在用户明确要求时构建**（`pwsh scripts/build-android.ps1`），平时保持源码可编译即可。
+> **构建约定（REQUIREMENTS.md §9.14）**：日常改动只做 Windows x64 构建 + 自检 + 截图验证；**Android APK 只在用户明确要求时构建**（`pwsh scripts/build-android.ps1`），平时保持源码可编译即可。
 
 ---
 
@@ -183,7 +184,7 @@ cmake --build build-android
 | `<exe>/data/cache/` | 封面、音频等缓存 | 否 |
 | `<exe>/data/logs/mrmusic.log` | 日志 | 否 |
 
-数据目录规则遵循 TARGET.md §5.2：Windows / Linux 为可执行文件旁的 `data/`；macOS / Android 使用系统标准应用数据目录。
+数据目录规则遵循 REQUIREMENTS.md §5.2：Windows / Linux 为可执行文件旁的 `data/`；macOS / Android 使用系统标准应用数据目录。
 
 ### 加密方案
 
@@ -238,7 +239,7 @@ api/ (NeteaseClient, KugouClient → HttpClient)
 build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2、inflate、指纹）
 ```
 
-自动化 / 截图核对用的命令行开关（TARGET.md §9.6）：
+自动化 / 截图核对用的命令行开关（REQUIREMENTS.md §9.6）：
 
 | 开关 | 作用 |
 | --- | --- |
@@ -270,11 +271,11 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 | 仅改动文档类文件 | **不触发**：`LICENSE`、`README.md`、`TARGET.md`、`PERSONAL.md`、`API_ENDPOINTS.md`、`VERSION`、`CHANGLOG.md` / `CHANGELOG.md`、`NO_BUILD`、`*.md`、`docs/**`（`paths-ignore`：本次所有变更文件都命中才跳过） |
 | 仓库存在 `NO_BUILD` 文件 | 由 `precheck` job 检测，全部构建/发版 job 跳过（run 仍会创建，但无实际构建） |
 
-发版规则（`release` job，每次 CI 都执行，见 `TARGET.md §10.29`）：
+发版规则（`release` job，每次 CI 都执行，见 `REQUIREMENTS.md §10.29`）：
 
 * 版本号 = 仓库根目录 `VERSION` 文件的内容（需非空，作为 tag / release 名，不加 `v` 前缀）。
 * `VERSION` 以 `-alpha` / `-beta` / `-bata` / `-dev` 结尾（可带 `.数字`，大小写不敏感）→ 发布为 **pre-release**，否则为正式版。
-* Release 说明取 `CHANGLOG.md`（不存在时回退 `CHANGELOG.md`），不使用自动生成的 notes。
+* Release 说明取 `CHANGLOG.md`（不存在时回退 `CHANGELOG.md`），不使用自动生成的 notes。`CHANGLOG.md` **只保留最新一版**，历史变更见 Releases。
 * 注意：`VERSION` 属于 `paths-ignore`，**只改版本号不会触发工作流**；需同时改动代码/其他文件，或手动 `workflow_dispatch` 触发。
 
 产物（`actions/upload-artifact`，保留 14 天）：
@@ -294,7 +295,7 @@ build\mrmusic_selftest.exe            :: 单元自检（AES KAT、RSA、PBKDF2�
 * Android 签名：仓库 Secret `ANDROID_KEYSTORE_BASE64`（`base64` 后的 keystore）可选；未配置时 CI 现场生成一次性自签名证书（口令 `mrmusic`，别名 `mrmusic`）。
 * 所有桌面 job 显式安装 `qtmultimedia` 模块（`modules: qtmultimedia`），因为 `CMakeLists.txt` 要求 `Qt6::Multimedia`，而 install-qt-action 默认只装基础模块；Android 目标 Qt 不装（该仓库无此 addon）。
 * Windows job 通过 `aqtsource` 使用 aqtinstall 的 6.11-Windows-布局修复版（tarball）：Qt 6.11 起 Windows 仓库目录改为 `qt6_6111_msvc2022_64/`，PyPI 上的 aqt 3.3.0 尚不认识，会报 `Failed to locate XML data`。
-* Android job **每次 CI 都构建**（`TARGET.md §10.29`）；§9.14「不主动构建 APK」只约束本地开发。
+* Android job **每次 CI 都构建**（`REQUIREMENTS.md §10.29`）；§9.14「不主动构建 APK」只约束本地开发。
 * `windows` / `linux` / `macos` 三个 job 会执行 `mrmusic_selftest`（AES/RSA/PBKDF2/inflate/指纹自检），失败即中断；`android` 与 `release` job 不跑自检（前者只构建 APK，后者只汇总产物）。
 * Linux 的 configure 带 `-DQT_DEPLOY_USE_PATCHELF=ON`，让 Qt 用 `patchelf` 改写插件 RUNPATH（CMake 的 `file(RPATH_SET)` 只能定长替换，会失败）。
-* 历史修复记录（首次真实运行的三类失败、后续 Build/link 与 AppImage 打包问题）见 `TARGET.md §10.27`–`§10.28`。
+* 历史修复记录（首次真实运行的三类失败、后续 Build/link 与 AppImage 打包问题）见 `REQUIREMENTS.md §10.27`–`§10.28`。
