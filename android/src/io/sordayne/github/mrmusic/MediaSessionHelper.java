@@ -10,6 +10,8 @@ import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.util.ArrayDeque;
 
@@ -21,6 +23,14 @@ import java.util.ArrayDeque;
  * queued and drained by the C++ implementation of
  * {@code mr::MediaControls} (see src/player/MediaControls.cpp) through
  * {@link #pollAction()}.
+ *
+ * <h3>Threading (TARGET.md §10.32)</h3>
+ * All of this is invoked from Qt's native thread ("qtMainLoopThread"), which has
+ * <b>no Looper</b>. Creating a {@link MediaSession} (it builds a {@code Handler}
+ * internally) or touching notifications from that thread throws
+ * {@code RuntimeException: Can't create handler inside thread that has not
+ * called Looper.prepare()} and aborts the process at startup. Every Android API
+ * call is therefore marshalled onto the main looper below.
  */
 public class MediaSessionHelper {
 
@@ -36,20 +46,33 @@ public class MediaSessionHelper {
 
     private final Context context;
     private final NotificationManager notificationManager;
-    private final MediaSession session;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    private String title = "";
-    private String artist = "";
-    private String album = "";
-    private boolean playing = false;
-    private boolean prepared = false;
+    /** Only ever touched on the main looper. */
+    private MediaSession session;
+    private volatile boolean prepared = false;
+
+    private volatile String title = "";
+    private volatile String artist = "";
+    private volatile String album = "";
+    private volatile boolean playing = false;
+    private volatile boolean released = false;
 
     public MediaSessionHelper(Context context) {
         this.context = context;
         this.notificationManager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        this.session = new MediaSession(context, "MrMusic");
-        this.session.setCallback(new MediaSession.Callback() {
+        // Do NOT create the session here: this constructor runs on Qt's thread.
+        mainHandler.post(this::ensureSession);
+    }
+
+    /** Creates the session/notification channel; must run on the main looper. */
+    private void ensureSession() {
+        if (session != null || released) {
+            return;
+        }
+        session = new MediaSession(context, "MrMusic");
+        session.setCallback(new MediaSession.Callback() {
             @Override
             public void onPlay() {
                 push(ACTION_PLAY_PAUSE);
@@ -75,9 +98,9 @@ public class MediaSessionHelper {
                 push(ACTION_STOP);
             }
         });
-        this.session.setActive(true);
+        session.setActive(true);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager != null) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID, "MrMusic", NotificationManager.IMPORTANCE_LOW);
             channel.setShowBadge(false);
@@ -108,24 +131,28 @@ public class MediaSessionHelper {
         this.title = title == null ? "" : title;
         this.artist = artist == null ? "" : artist;
         this.album = album == null ? "" : album;
-
-        MediaMetadata metadata = new MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, this.title)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, this.artist)
-                .putString(MediaMetadata.METADATA_KEY_ALBUM, this.album)
-                .build();
-        session.setMetadata(metadata);
-        updatePlaybackState();
-        postNotification();
+        mainHandler.post(this::applyState);
     }
 
     public void setPlaybackState(boolean playing) {
         this.playing = playing;
-        updatePlaybackState();
-        postNotification();
+        mainHandler.post(this::applyState);
     }
 
-    private void updatePlaybackState() {
+    /** Applies metadata + playback state + notification on the main looper. */
+    private void applyState() {
+        ensureSession();
+        if (session == null || released) {
+            return;
+        }
+
+        MediaMetadata metadata = new MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, title)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, album)
+                .build();
+        session.setMetadata(metadata);
+
         long actions = PlaybackState.ACTION_PLAY
                 | PlaybackState.ACTION_PAUSE
                 | PlaybackState.ACTION_PLAY_PAUSE
@@ -137,6 +164,8 @@ public class MediaSessionHelper {
                 .setState(playing ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED,
                         PlaybackState.PLAYBACK_POSITION_UNKNOWN, playing ? 1.0f : 0.0f);
         session.setPlaybackState(builder.build());
+
+        postNotification();
     }
 
     private PendingIntent contentIntent() {
@@ -165,6 +194,9 @@ public class MediaSessionHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             return;
         }
+        if (session == null || notificationManager == null) {
+            return;
+        }
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(context, CHANNEL_ID)
                 : new Notification.Builder(context);
@@ -178,10 +210,12 @@ public class MediaSessionHelper {
                 .setContentText(artist)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentIntent(contentIntent())
-                .setOngoing(playing);
+                .setOngoing(playing)
+                .setOnlyAlertOnce(true)
+                .setVisibility(Notification.VISIBILITY_PUBLIC);
 
         builder.addAction(new Notification.Action.Builder(
-                playing ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                android.R.drawable.ic_media_play,
                 "Play/Pause", actionIntent(ACTION_PLAY_PAUSE, "toggle")).build());
         builder.addAction(new Notification.Action.Builder(
                 android.R.drawable.ic_media_previous,
@@ -203,8 +237,16 @@ public class MediaSessionHelper {
     }
 
     public void release() {
-        session.setActive(false);
-        session.release();
-        notificationManager.cancel(NOTIFICATION_ID);
+        released = true;
+        mainHandler.post(() -> {
+            if (session != null) {
+                session.setActive(false);
+                session.release();
+                session = null;
+            }
+            if (notificationManager != null) {
+                notificationManager.cancel(NOTIFICATION_ID);
+            }
+        });
     }
 }

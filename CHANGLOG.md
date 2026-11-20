@@ -3,6 +3,10 @@
 本文件是 CI 发版时 Release 说明的来源（`TARGET.md §10.29`）。
 版本号记录在 `VERSION`。以 `-alpha` / `-beta` / `-bata` / `-dev` 结尾的版本会发布为 pre-release。
 
+## 0.1.2
+
+- 修复 Android 启动即闪退：Android MediaSession 的构造/回调在 Qt 原生线程（无 Looper）上执行导致 RuntimeException: Can't create handler ... Looper.prepare()，进程 SIGABRT。现全部投递到主 Looper 执行。
+
 ## 0.1.1
 
 - 修复网易云二维码登录在手机确认后无后续：QR 端点改走 eapi、不再吞掉轮询失败、成功时校验登录态；账密登录受平台限制时明确提示改用扫码。

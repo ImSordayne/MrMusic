@@ -275,6 +275,12 @@
       - 头像：`AvatarBubble` 用 `QtQuick.Effects` 的 `MultiEffect` + 圆形 `maskSource` 裁剪（几何遮罩，非 §9.12 禁止的着色染色）；**已用独立 QML 脚本做像素级验证**：方块四角 `A=0` 全透明、圆周不透明。
       - Windows 图标：新增 `src/win32/appicon.rc`（`IDI_APP_ICON ICON "../../res/logo.ico"`），仅在 `if(WIN32)` 下 `target_sources` 到 `MrMusic`；实测编译出 `appicon.rc.res` 且可从 exe 提取出图标。其它图标资产未改动。
       - 版本：`VERSION` 改为版本号**唯一来源**（CMake 读取它设置 `MRMUSIC_VERSION` 与各平台 bundle/android 版本，`project(VERSION)` 仅作回退）；`VERSION` 0.1.0 → **0.1.1**（Bug 修复，`z` 递增），`CHANGLOG.md` 已记录。
+32. **Android 启动即闪退（本轮）：** 用户反馈 Android 版直接闪退。排查方式：SSH 连接 `192.168.0.106:8022`（用户 `chl`，密码见用户消息；**凭据不写入本仓库**）查看设备日志（`adb logcat` / tombstone），定位崩溃原因并修复；修复后需保持 Windows 构建自检通过，Android 源码可编译。
+    - **实测设备**：Android 13（SDK 33）/ arm64-v8a / root(Magisk) / Termux，包名 `io.sordayne.github.mrmusic`，崩溃版本 `0.1.1`。
+    - **根因（tombstone_11 铁证）**：`MediaSessionHelper` 构造函数在 **Qt 原生线程 `qtMainLoopThread`（无 Looper）** 上调用 `MediaSession.setCallback(...)`，其内部 `new Handler()` 抛出
+      `java.lang.RuntimeException: Can't create handler inside thread ... that has not called Looper.prepare()`；
+      该 Java 异常遗留为 pending，随后 `QQmlApplicationEnginePrivate::init()` → `QtAndroidPrivate::findClass` 处 `AssertNoPendingException` 触发 `SIGABRT`（`Fatal signal 6`）。栈：`MediaSessionHelper.<init>` ← `MediaSession.setCallback` ← `MediaSession.java:224/248`。
+    - **修复**：`MediaSessionHelper` 改为**把所有 Android API 调用（建 MediaSession/设回调/通知）投递到主 Looper**（`new Handler(Looper.getMainLooper())` + `mainHandler.post(...)`），构造函数不再同步创建 session；元数据/播放状态用 `volatile` 字段暂存后再统一 `applyState()`。这样 Qt 线程只做纯 Java 字段赋值与 post，不触碰需要 Looper 的 API。
    - **第 1 轮 gh 跟踪（run `42456439992`）失败与修复**：
      - **Windows / macOS / Android 的 Build 全部失败**，根因是新增的 `VERSION` 文件在大小写不敏感文件系统上被当成 C++20 标准头 `<version>`（Qt 6.11 的 `qtconfiginclude.h` 会 `#include <version>`），编译器把 `0.1.0` 当源码解析（`expected unqualified-id` / `C2059`）。`qt_add_qml_module()` 会无条件把仓库根目录加入 `MrMusic` 的 include 路径（QTBUG-93443）。修复：关掉多余的 `CMAKE_INCLUDE_CURRENT_DIR`，并在 `qt_add_qml_module` 之后从 `MrMusic` target 的 `INCLUDE_DIRECTORIES` 移除 `CMAKE_CURRENT_SOURCE_DIR`（项目内所有 `#include` 都走 `src/`，不依赖根目录）。本机 Windows 构建 + 自检复验通过。
      - **Android `Setup Android SDK` 失败**：`android-actions/setup-android@v3` 内部执行 `sdkmanager tools`，但新版 SDK 镜像已无该旧包 → `Failed to find package 'tools'`。修复：去掉该 action，直接用 runner 预装的 `sdkmanager --install "ndk;..." "platforms;android-34" "build-tools;34.0.0"` 并设置 `ANDROID_SDK_ROOT` / `ANDROID_NDK_ROOT`（回退 `ANDROID_HOME`）。
