@@ -1,10 +1,23 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(MrMusic
-    VERSION 0.1.0
+    VERSION 0.1.1
     DESCRIPTION "MrMusic - cross platform music player (NetEase Cloud Music + KuGou)"
     LANGUAGES CXX
 )
+
+# --- Version single source of truth (TARGET.md §10.31) ------------------------
+# The repo-root VERSION file drives CI release tags and the app version, so the
+# two never drift. project(VERSION ...) above is only the fallback.
+set(MRMUSIC_VERSION_STRING "${PROJECT_VERSION}")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" _mrmusic_version LIMIT_COUNT 1)
+    string(STRIP "${_mrmusic_version}" _mrmusic_version)
+    if(_mrmusic_version MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+")
+        set(MRMUSIC_VERSION_STRING "${_mrmusic_version}")
+    endif()
+endif()
+message(STATUS "MrMusic: version ${MRMUSIC_VERSION_STRING}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -111,7 +124,7 @@ target_link_libraries(mrmusic_core PUBLIC
 )
 
 target_compile_definitions(mrmusic_core PUBLIC
-    MRMUSIC_VERSION="${PROJECT_VERSION}"
+    MRMUSIC_VERSION="${MRMUSIC_VERSION_STRING}"
 )
 
 option(MRMUSIC_NO_WINRT "Disable Windows SMTC (C++/WinRT) integration" OFF)
@@ -208,6 +221,12 @@ qt_add_executable(MrMusic WIN32 MACOSX_BUNDLE
     src/ui/IconProvider.h
 )
 
+# Windows-only: set the executable's icon via a .rc file (TARGET.md §10.31).
+# No other platform / icon asset is touched.
+if(WIN32)
+    target_sources(MrMusic PRIVATE src/win32/appicon.rc)
+endif()
+
 qt_add_qml_module(MrMusic
     URI MrMusic
     VERSION 1.0
@@ -252,7 +271,7 @@ if(ANDROID)
     set_target_properties(MrMusic PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
         QT_ANDROID_PACKAGE_NAME "io.sordayne.github.mrmusic"
-        QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}"
+        QT_ANDROID_VERSION_NAME "${MRMUSIC_VERSION_STRING}"
         QT_ANDROID_VERSION_CODE "1"
         QT_ANDROID_MIN_SDK_VERSION 29
         QT_ANDROID_TARGET_SDK_VERSION 34
@@ -262,8 +281,8 @@ endif()
 set_target_properties(MrMusic PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "MrMusic"
     MACOSX_BUNDLE_GUI_IDENTIFIER "io.sordayne.github.mrmusic"
-    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
-    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${MRMUSIC_VERSION_STRING}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${MRMUSIC_VERSION_STRING}"
 )
 
 # ---------------------------------------------------------------------------

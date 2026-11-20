@@ -256,6 +256,25 @@
     - **根因**：CI 用 `Compress-Archive -Path dist/bin`（打包目录本身），解压后得到 `bin/MrMusic.exe`。改为 `-Path dist/bin/*`（打包目录内容）。
     - **附带修复**：`Compress-Archive` 会丢弃空目录，导致运行期必需的 `data/` 不进 zip；在打包前往 `dist/bin/data/` 写一个 `README.txt` 占位，保证解压后目录存在。
     - **本地实测**：扁平 zip 顶层直接是 `MrMusic.exe` + DLL + `qml/` 等，`bin/` 条目数 0，`data/` 条目存在。
+31. **登录问题修复 + 版本规则 + Windows 预览图标（本轮）：**
+    1. **网易云账密登录提示「更新」**：调用账密登录接口时返回了要求升级/更新客户端的错误，需定位并修正请求（如补齐必需参数、Cookie、加密方式或客户端版本标识）。
+    2. **网易云二维码登录扫码后无反应**：扫码成功后轮询状态/写回 Cookie 的链路没有生效，需修复二维码状态轮询与登录态落地。
+    3. **酷狗账密登录请求失败**：定位失败原因（端点/参数/签名/加密）并修复。
+    4. **酷狗扫码登录后头像裁剪错误**（见用户附图）：扫码登录成功后头像显示成方形/错位，需修正 `AvatarBubble` 的圆形裁剪与头像 URL/尺寸处理。
+    5. **版本变更规则（长期约定）**：版本号 `x.y.z` —— `x` = 重大更新（如 UI 重构），`y` = 功能更新（如新增其他音乐平台支持），`z` = Bug 修复。每轮改动按此规则递增 `VERSION`，并在 `CHANGLOG.md` 记录对应条目；`-alpha/-beta/-bata/-dev` 后缀仍按 §10.29 判定 pre-release。
+    6. **Windows 平台使用 `.rc` 文件把 `res/logo.ico` 设为可执行文件预览图标**（资源管理器/任务栏显示），**其它地方的图标一律不改**（不动 `res/app.png`、`logo-mark.svg`、Android mipmap、QML 内部图标等）。
+    - 本轮属 Bug 修复为主（`z` 递增），`VERSION` 由 `0.1.0` → `0.1.1`，`CHANGLOG.md` 增加对应条目。
+    - **用户补充澄清**：① 网易云扫码会显示「已扫码，请在手机上确认」（802），但**确认后没有后续**；酷狗扫码**正常**。② 两个平台的**账密登录都不行**。③ **「如果密码不行，扫码/短信登录也可以」**——允许放弃账密登录，只要扫码或短信验证码登录可用即可。
+    - **实现决策（依上述澄清）**：
+      - 网易云 QR 端点改走 **eapi**（上游 `login_qr_check.js` 默认 `APP_CONF.encrypt=true` → eapi，而 C++ 原用 weapi）；并在 `qrCheck` 的 803 分支把响应里的 `cookie` 字段一并合并进登录态（上游 `login_qr_check.js` 会把 `result.cookie` 拼进 body），解决「确认后无后续」。
+      - 账密登录保留入口但**失败时明确提示改用扫码/短信**，不再让用户误以为程序坏了；不强行绕过平台侧的账密限制。
+      - 酷狗扫码已验证正常，作为主登录方式；头像圆形裁剪单独修复。
+    - **本轮落地结果**：
+      - 网易云 QR：`qrKey`/`qrCheck` 已改 eapi；`qrCheck` **不再吞掉轮询失败**（此前失败时 body 为空、`code=0`，UI 会永远停在「已扫码，请在手机上确认」）；803 分支额外合并 body 内的 `cookie` 字符串（对齐上游 `login_qr_check.js`）后再取资料；`AccountController` 在 803 时校验 `loggedIn()`，未落地则明确提示而不是静默成功。
+      - 账密登录：两平台失败时统一追加「请改用上方二维码扫码登录」指引（依用户「密码不行就用扫码/短信」）。
+      - 头像：`AvatarBubble` 用 `QtQuick.Effects` 的 `MultiEffect` + 圆形 `maskSource` 裁剪（几何遮罩，非 §9.12 禁止的着色染色）；**已用独立 QML 脚本做像素级验证**：方块四角 `A=0` 全透明、圆周不透明。
+      - Windows 图标：新增 `src/win32/appicon.rc`（`IDI_APP_ICON ICON "../../res/logo.ico"`），仅在 `if(WIN32)` 下 `target_sources` 到 `MrMusic`；实测编译出 `appicon.rc.res` 且可从 exe 提取出图标。其它图标资产未改动。
+      - 版本：`VERSION` 改为版本号**唯一来源**（CMake 读取它设置 `MRMUSIC_VERSION` 与各平台 bundle/android 版本，`project(VERSION)` 仅作回退）；`VERSION` 0.1.0 → **0.1.1**（Bug 修复，`z` 递增），`CHANGLOG.md` 已记录。
    - **第 1 轮 gh 跟踪（run `42456439992`）失败与修复**：
      - **Windows / macOS / Android 的 Build 全部失败**，根因是新增的 `VERSION` 文件在大小写不敏感文件系统上被当成 C++20 标准头 `<version>`（Qt 6.11 的 `qtconfiginclude.h` 会 `#include <version>`），编译器把 `0.1.0` 当源码解析（`expected unqualified-id` / `C2059`）。`qt_add_qml_module()` 会无条件把仓库根目录加入 `MrMusic` 的 include 路径（QTBUG-93443）。修复：关掉多余的 `CMAKE_INCLUDE_CURRENT_DIR`，并在 `qt_add_qml_module` 之后从 `MrMusic` target 的 `INCLUDE_DIRECTORIES` 移除 `CMAKE_CURRENT_SOURCE_DIR`（项目内所有 `#include` 都走 `src/`，不依赖根目录）。本机 Windows 构建 + 自检复验通过。
      - **Android `Setup Android SDK` 失败**：`android-actions/setup-android@v3` 内部执行 `sdkmanager tools`，但新版 SDK 镜像已无该旧包 → `Failed to find package 'tools'`。修复：去掉该 action，直接用 runner 预装的 `sdkmanager --install "ndk;..." "platforms;android-34" "build-tools;34.0.0"` 并设置 `ANDROID_SDK_ROOT` / `ANDROID_NDK_ROOT`（回退 `ANDROID_HOME`）。

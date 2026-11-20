@@ -1,0 +1,6 @@
+// Windows executable icon (preview in Explorer / taskbar).
+// TARGET.md §10.31: ONLY this Windows .rc uses res/logo.ico; all other
+// icons (res/app.png, logo-mark.svg, Android mipmaps, QML icons) stay as-is.
+#include <windows.h>
+
+IDI_APP_ICON ICON "../../res/logo.ico"

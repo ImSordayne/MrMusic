@@ -554,7 +554,7 @@ void NeteaseClient::qrKey(JsonCallback callback)
     QJsonObject data;
     data[QStringLiteral("type")] = 3;
 
-    request(QStringLiteral("/api/login/qrcode/unikey"), data, Mode::Weapi,
+    request(QStringLiteral("/api/login/qrcode/unikey"), data, Mode::Eapi,
             [callback](bool ok, const QJsonObject &body, const QString &error) {
                 if (!ok) {
                     if (callback)
@@ -578,15 +578,48 @@ void NeteaseClient::qrCheck(const QString &key, JsonCallback callback)
     data[QStringLiteral("key")] = key;
     data[QStringLiteral("type")] = 3;
 
-    request(QStringLiteral("/api/login/qrcode/client/login"), data, Mode::Weapi,
+    request(QStringLiteral("/api/login/qrcode/client/login"), data, Mode::Eapi,
             [this, callback](bool ok, const QJsonObject &body, const QString &error) {
-                Q_UNUSED(ok)
-                Q_UNUSED(error)
+                // Do NOT swallow transport failures: qrCheck() used to ignore
+                // `ok`, so a failed poll returned an empty body (code 0) and
+                // AccountController kept showing "已扫码，请在手机上确认"
+                // forever after the user confirmed (TARGET.md §10.31).
+                if (!ok) {
+                    if (callback)
+                        callback(false, body, error);
+                    return;
+                }
                 const int code = body.value(QStringLiteral("code")).toInt(0);
                 QJsonObject out = body;
                 out[QStringLiteral("code")] = code;
                 if (code == 803) {
-                    // fetch the profile for the header avatar
+                    // The upstream login_qr_check.js also returns the login
+                    // cookies in the BODY (`cookie: result.cookie.join(';')`).
+                    // On the eapi endpoint the Set-Cookie header may not carry
+                    // MUSIC_U, so merge that string too - otherwise loggedIn()
+                    // stays false and the UI never advances after the user
+                    // confirms on the phone (TARGET.md §10.31).
+                    const QString cookieText = body.value(QStringLiteral("cookie")).toString();
+                    if (!cookieText.isEmpty()) {
+                        bool changed = false;
+                        const QStringList pairs = cookieText.split(QLatin1Char(';'));
+                        for (const QString &pair : pairs) {
+                            const int equals = pair.indexOf(QLatin1Char('='));
+                            if (equals <= 0)
+                                continue;
+                            const QString name = pair.left(equals).trimmed();
+                            const QString value = pair.mid(equals + 1).trimmed();
+                            if (name.isEmpty() || value.isEmpty())
+                                continue;
+                            if (m_cookies.value(name) != value) {
+                                m_cookies[name] = value;
+                                changed = true;
+                            }
+                        }
+                        if (changed)
+                            emit cookiesChanged();
+                    }
+                    // Refresh the profile AFTER the login cookies are stored.
                     accountInfo(nullptr);
                     emit loginStateChanged();
                 }

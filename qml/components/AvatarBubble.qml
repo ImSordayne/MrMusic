@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import MrMusic
 
 /// Circular account avatar: red for NetEase, blue for KuGou.
@@ -30,6 +31,11 @@ Item {
         opacity: bubble.loggedIn ? 0.95 : 0.35
     }
 
+    // A plain QML Image is rectangular; PreserveAspectCrop alone only crops the
+    // source, it does NOT round the corners, so a square avatar (e.g. KuGou's
+    // white-background icons) used to stick out of the circular bubble.
+    // Mask it with a circle (TARGET.md §10.31). This is a geometric mask, not
+    // the shader colour tint that §9.12 forbids.
     Image {
         id: avatarImage
         anchors.fill: parent
@@ -38,6 +44,28 @@ Item {
         asynchronous: true
         fillMode: Image.PreserveAspectCrop
         visible: bubble.showsImage
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: circleMask
+            maskSpreadAtMin: 1.0
+            maskThresholdMin: 0.5
+        }
+    }
+
+    // Invisible circular mask source. It must be rendered to a layer but not
+    // shown in the visual tree; MultiEffect samples it as a texture.
+    Item {
+        id: circleMask
+        width: avatarImage.width
+        height: avatarImage.height
+        visible: false
+        layer.enabled: true
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "white"
+        }
     }
 
     Rectangle {

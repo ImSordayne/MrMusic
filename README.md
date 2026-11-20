@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/language-C++-blue.svg" alt="语言">
-  <a href="https://github.com/ImSordayne/MrMusic/releases"><img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="版本"></a>
+  <a href="https://github.com/ImSordayne/MrMusic/releases"><img src="https://img.shields.io/badge/version-0.1.1-green.svg" alt="版本"></a>
   <a href="https://github.com/ImSordayne/MrMusic/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="许可证"></a>
   <img src="https://img.shields.io/badge/Qt-6.11-blue.svg" alt="Qt 版本">
 </p>
@@ -59,7 +59,7 @@
 | FFmpeg 音频后端 | ✅ | 通过 Qt Multimedia 的 FFmpeg 后端（`QT_MEDIA_BACKEND=ffmpeg`），运行时日志确认 FFmpeg 7.1.3 |
 | 歌曲下载 | ✅ | 目录可选（默认系统音乐目录）、`作者-专辑-音质-平台.ext` 命名、每平台最多 5 并发、单曲单连接 |
 | 下载后写入标签/歌词/封面 | ✅ MP3 / FLAC | ID3v2.3（TIT2/TPE1/TALB/TYER/USLT/APIC）、FLAC VORBIS_COMMENT + PICTURE；M4A 暂未写入（见 §7） |
-| 登录 | ✅ | 两个平台各自独立：扫码登录（内置二维码生成）+ 账号密码登录 |
+| 登录 | ✅ 扫码 / ⚠️ 账密 | 两个平台各自独立：**扫码登录为推荐方式**（内置二维码生成）；账密登录入口保留，但受平台限制失败时会明确提示改用扫码 |
 | 用户数据加密 | ✅ | token/cookie 用「系统指纹 + 随机盐 → PBKDF2-HMAC-SHA256 → AES-256-CBC + HMAC-SHA256」加密保存，可切换明文 |
 | 原子写入 / 损坏提示 | ✅ | `QSaveFile` 临时文件替换；MAC/解密失败 → 界面提示重新登录 |
 | 关闭行为可选 | ✅ | 设置中可选「在托盘运行」（Linux 无托盘则后台运行）或「直接关闭」，默认托盘运行；托盘菜单「退出」走 `QCoreApplication::exit`（带强制退出兜底） |
@@ -132,6 +132,10 @@ cmake --build build
 ```
 
 产物：`build/MrMusic.exe`（运行时数据写入 `build/data/`，也就是可执行文件旁的 `data/`）。
+
+> **版本号**：仓库根目录 `VERSION` 是唯一来源（`x.y.z`；`x` 重大更新如 UI 重构、`y` 功能更新如新增平台、`z` Bug 修复）。CMake 读取它设置程序版本，CI 用它作为 Release 版本号。
+>
+> **Windows 图标**：仅通过 `src/win32/appicon.rc` 把 `res/logo.ico` 设为 exe 预览图标；其它平台/其它图标资产不受影响。
 
 运行自检（加密算法、指纹、inflate、PBKDF2）：
 

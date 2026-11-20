@@ -229,13 +229,19 @@ void AccountController::pollQr()
             case 802:
                 setLoginState(QStringLiteral("scanned"), tr("已扫码，请在手机上确认"));
                 break;
-            case 803:
+            case 803: {
                 m_pollTimer->stop();
                 m_netease->accountInfo(nullptr);
-                setLoginState(QStringLiteral("success"), tr("网易云登录成功"));
+                // If the login cookies did not land (e.g. the endpoint stopped
+                // returning Set-Cookie), say so instead of silently stalling.
+                const bool loggedIn = m_netease->loggedIn();
+                setLoginState(loggedIn ? QStringLiteral("success") : QStringLiteral("error"),
+                              loggedIn ? tr("网易云登录成功")
+                                       : tr("登录态未同步，请改用扫码重试或稍后再试"));
                 persist();
                 emit stateChanged();
                 break;
+            }
             default:
                 break;
             }
@@ -283,7 +289,12 @@ void AccountController::loginWithPassword(const QString &source, const QString &
         m_netease->loginCellphone(account, password, QString(),
                                   [this](bool ok, const QJsonObject &body, const QString &error) {
             if (!ok) {
-                setLoginState(QStringLiteral("error"), error);
+                // NetEase has been restricting password logins on old
+                // client versions; steer the user to the QR flow instead of
+                // showing a bare failure (TARGET.md §10.31).
+                const QString detail = error.isEmpty() ? tr("登录失败") : error;
+                setLoginState(QStringLiteral("error"),
+                              tr("%1。账密登录可能受平台限制，请改用上方二维码扫码登录。").arg(detail));
                 return;
             }
             m_netease->accountInfo(nullptr);
@@ -295,7 +306,9 @@ void AccountController::loginWithPassword(const QString &source, const QString &
         m_kugou->loginByPassword(account, password,
                                  [this](bool ok, const QJsonObject &, const QString &error) {
             if (!ok) {
-                setLoginState(QStringLiteral("error"), error.isEmpty() ? tr("登录失败") : error);
+                const QString detail = error.isEmpty() ? tr("登录失败") : error;
+                setLoginState(QStringLiteral("error"),
+                              tr("%1。酷狗账密登录可能受平台限制，请改用上方二维码扫码登录。").arg(detail));
                 return;
             }
             setLoginState(QStringLiteral("success"), tr("酷狗登录成功"));
